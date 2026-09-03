@@ -6,10 +6,14 @@ import subprocess
 from deepface import DeepFace
 
 # ---- CONFIG ----
-DETECT_EVERY_N_FRAMES = 8
+DETECT_EVERY_N_FRAMES = 4
 BLUR_STRENGTH = 51
-EXPAND_RATIO = 0.3
-DETECTION_SCALE = 0.5  # downscale factor for detection only (speed boost)
+EXPAND_RATIO = 0.5
+DETECTION_SCALE = 0.5
+
+_windows_ffmpeg = r"C:\Users\uzair\Downloads\ffmpeg-9.0.1-essentials_build\ffmpeg-9.0.1-essentials_build\bin\ffmpeg.exe"
+FFMPEG_PATH = _windows_ffmpeg if os.path.exists(_windows_ffmpeg) else "ffmpeg"
+
 
 def blur_region(frame, x, y, w, h, expand_ratio=EXPAND_RATIO):
     frame_h, frame_w = frame.shape[:2]
@@ -29,6 +33,7 @@ def blur_region(frame, x, y, w, h, expand_ratio=EXPAND_RATIO):
     frame[y1:y2, x1:x2] = blurred
     return frame
 
+
 def detect_and_classify(frame):
     results = []
     small_frame = cv2.resize(frame, None, fx=DETECTION_SCALE, fy=DETECTION_SCALE)
@@ -43,16 +48,20 @@ def detect_and_classify(frame):
             analysis = [analysis]
         for face in analysis:
             region = face['region']
-            # scale coordinates back up to original frame size
+            if region['w'] <= 0 or region['h'] <= 0:
+                continue
             x = int(region['x'] / DETECTION_SCALE)
             y = int(region['y'] / DETECTION_SCALE)
             w = int(region['w'] / DETECTION_SCALE)
             h = int(region['h'] / DETECTION_SCALE)
             dominant_gender = face['dominant_gender']
+            confidence = face['gender'][dominant_gender]
+            print(f"Detected: {dominant_gender} (confidence: {confidence:.1f}%)")
             results.append((x, y, w, h, dominant_gender))
     except Exception as e:
         print(f"Detection error on frame: {e}")
     return results
+
 
 def process_video(input_path, output_path, progress_callback=None):
     cap = cv2.VideoCapture(input_path)
@@ -73,7 +82,9 @@ def process_video(input_path, output_path, progress_callback=None):
             break
 
         if frame_idx % DETECT_EVERY_N_FRAMES == 0:
-            last_detections = detect_and_classify(frame)
+            new_detections = detect_and_classify(frame)
+            if new_detections:
+                last_detections = new_detections
 
         for (x, y, w, h, gender) in last_detections:
             if gender == "Woman":
@@ -88,8 +99,6 @@ def process_video(input_path, output_path, progress_callback=None):
     cap.release()
     out.release()
 
-_windows_ffmpeg = r"C:\Users\uzair\Downloads\ffmpeg-9.0.1-essentials_build\ffmpeg-9.0.1-essentials_build\bin\ffmpeg.exe"
-FFMPEG_PATH = _windows_ffmpeg if os.path.exists(_windows_ffmpeg) else "ffmpeg"
 
 def merge_audio(video_path, original_path, final_path):
     cmd = [
@@ -105,6 +114,8 @@ def merge_audio(video_path, original_path, final_path):
         final_path
     ]
     subprocess.run(cmd, check=True, capture_output=True)
+
+
 # ---- STREAMLIT UI ----
 st.set_page_config(
     page_title="Face Blur by Gender",
