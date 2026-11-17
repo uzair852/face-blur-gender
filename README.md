@@ -87,3 +87,7 @@ The DeepFace models (about 650 MB) download automatically on the first run.
 - **Classification isn't perfect:** gender classification sometimes gets a face wrong in individual frames, so a woman's face can briefly appear unblurred. For a production system where this matters, results would need human review, or the blur would need to be kept on a face once it's been classified as a woman.
 - **Memory-heavy:** the models need roughly 1 GB of memory together, which is close to the free Streamlit tier's limit. Long videos can crash the live demo; running locally avoids this.
 - **Speed:** processing is CPU-bound and much slower than real time on the free tier.
+
+## Documentation
+
+See [Task4_Solution_Document.pdf](Task4_Solution_Document.pdf) for the full design write-up.
