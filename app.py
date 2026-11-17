@@ -2,6 +2,7 @@ import streamlit as st
 import cv2
 import tempfile
 import os
+import shutil
 import subprocess
 from deepface import DeepFace
 
@@ -10,9 +11,14 @@ DETECT_EVERY_N_FRAMES = 4
 BLUR_STRENGTH = 51
 EXPAND_RATIO = 0.5
 DETECTION_SCALE = 0.5
+# If this many detection passes in a row find no faces, clear the blur boxes.
+# Keeps blurs steady through brief missed detections without leaving
+# "ghost" blurs behind after a person leaves the frame.
+MAX_MISSED_DETECTIONS = 2
 
-_windows_ffmpeg = r"C:\Users\uzair\Downloads\ffmpeg-9.0.1-essentials_build\ffmpeg-9.0.1-essentials_build\bin\ffmpeg.exe"
-FFMPEG_PATH = _windows_ffmpeg if os.path.exists(_windows_ffmpeg) else "ffmpeg"
+# ffmpeg location: use the FFMPEG_PATH environment variable if set,
+# otherwise look for ffmpeg on the system PATH.
+FFMPEG_PATH = os.getenv("FFMPEG_PATH") or shutil.which("ffmpeg") or "ffmpeg"
 
 
 def blur_region(frame, x, y, w, h, expand_ratio=EXPAND_RATIO):
@@ -74,6 +80,7 @@ def process_video(input_path, output_path, progress_callback=None):
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     last_detections = []
+    missed_detections = 0
     frame_idx = 0
 
     while True:
@@ -85,6 +92,11 @@ def process_video(input_path, output_path, progress_callback=None):
             new_detections = detect_and_classify(frame)
             if new_detections:
                 last_detections = new_detections
+                missed_detections = 0
+            else:
+                missed_detections += 1
+                if missed_detections >= MAX_MISSED_DETECTIONS:
+                    last_detections = []
 
         for (x, y, w, h, gender) in last_detections:
             if gender == "Woman":
@@ -192,7 +204,7 @@ if uploaded_file is not None:
             try:
                 merge_audio(blurred_path, input_path, final_path)
                 final_output = final_path
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, FileNotFoundError):
                 st.warning("Audio merge failed — showing video without audio.")
                 final_output = blurred_path
 

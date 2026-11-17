@@ -1,5 +1,22 @@
+# Python
 __pycache__/
 *.pyc
+
+# DeepFace model cache
 .deepface/
+
+# Videos (inputs and outputs)
 *.mp4
+*.mov
+*.avi
+
+# Streamlit local config
 .streamlit/
+
+# Old scripts (kept locally, not part of the app)
+process_video.py
+test_deepface.py
+
+# Office source files (keep the PDF only)
+*.docx
+*.pptx
